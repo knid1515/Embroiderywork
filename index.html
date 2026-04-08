@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ครูกฤตัชญ์งานปัก</title>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --navy: #1a237e; --gold: #c5a021; --success: #2e7d32; --bg-gray: #e0e0e0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Kanit', sans-serif; }
+        body { background-color: var(--bg-gray); display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        
+        .app-wrapper { 
+            width: 100%; max-width: 400px; height: 95vh; background: white; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.2); border-radius: 20px; overflow: hidden; 
+            display: flex; flex-direction: column; position: relative; 
+        }
+
+        .view-section { display: none; flex-direction: column; height: 100%; flex: 1; overflow: hidden; }
+        .view-section.active { display: flex; }
+        
+        /* Header */
+        .header-bar { background: var(--navy); color: white; padding: 10px 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid var(--gold); position: relative; }
+        .header-logo { height: 35px; width: auto; margin-right: 10px; }
+        
+        /* Floating Admin Button (Top Right) */
+        .admin-trigger {
+            position: absolute; top: 12px; right: 15px; width: 32px; height: 32px;
+            background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3);
+            color: white; border-radius: 50%; display: flex; justify-content: center;
+            align-items: center; cursor: pointer; z-index: 100; transition: 0.3s;
+        }
+        .admin-trigger:hover { background: rgba(255,255,255,0.4); }
+
+        /* Chat Area */
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+        .message { max-width: 85%; padding: 10px 15px; border-radius: 18px; font-size: 0.9rem; line-height: 1.4; }
+        .message.bot { background: #f0f0f0; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .message.user { background: var(--navy); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
+        
+        /* Buttons */
+        .quick-replies { padding: 10px; display: flex; flex-wrap: wrap; gap: 8px; background: #f9f9f9; border-top: 1px solid #eee; }
+        .qr-btn { background: white; border: 1px solid var(--navy); color: var(--navy); padding: 8px 15px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+        .qr-btn:active { background: var(--navy); color: white; }
+        
+        /* Form */
+        .input-form-area { display: none; padding: 15px; background: white; border-top: 1px solid #eee; flex-direction: column; gap: 8px; overflow-y: auto; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 5px; }
+        .form-group label { font-size: 0.8rem; font-weight: bold; color: #555; }
+        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 8px; outline: none; width: 100%; font-size: 0.9rem; }
+        .submit-btn { background: var(--success); color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; font-size: 1rem; }
+
+        /* Thermal Receipt Style (7-11) */
+        .receipt { 
+            background: #fff; padding: 25px 20px; margin: 15px; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); font-family: monospace; 
+            color: #333; line-height: 1.3; border: 1px solid #eee;
+        }
+        .receipt-header { text-align: center; font-size: 0.85rem; margin-bottom: 10px; }
+        .receipt-line { border-top: 1px dashed #999; margin: 8px 0; }
+        .receipt-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin: 2px 0; }
+        .payment-box { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; margin-top: 15px; text-align: center; border-radius: 5px; font-family: 'Kanit'; }
+
+        /* Admin & Orders */
+        .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; padding: 20px; }
+        .admin-card { background: white; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer; }
+        .order-card { background: white; padding: 12px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid var(--navy); box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 0.8rem; }
+        
+        /* Footer */
+        .app-footer { background: #f1f1f1; padding: 10px; text-align: center; font-size: 0.7rem; color: #777; border-top: 1px solid #ddd; }
+
+        /* Popup */
+        .popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 2000; backdrop-filter: blur(2px); }
+        .popup-content { background: white; padding: 25px; border-radius: 20px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        
+        /* Loading Spinner */
+        #global-loading { 
+            position: fixed; top:0; left:0; width:100%; height:100%; 
+            background: rgba(26, 35, 126, 0.9); z-index:3000; 
+            display:none; justify-content:center; align-items:center; 
+            color:white; flex-direction:column; 
+        }
+        .spinner { width: 45px; height: 45px; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid var(--gold); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div id="global-loading">
+        <div class="spinner"></div>
+        <div style="margin-top: 15px; letter-spacing: 1px;">กำลังติดต่อห้องปัก...</div>
+    </div>
+
+    <div id="custom-popup" class="popup-overlay">
+        <div class="popup-content">
+            <span id="p-icon" style="font-size: 3rem; display: block; margin-bottom: 10px;">✅</span>
+            <div id="p-title" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">สำเร็จ</div>
+            <div id="p-text" style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">ดำเนินการเรียบร้อย</div>
+            <button onclick="closePopup()" style="width: 100%; padding: 12px; background: var(--navy); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">ตกลง</button>
+        </div>
+    </div>
+
+    <div class="app-wrapper">
+        <div id="home-view" class="view-section active" style="background: var(--navy); justify-content: center; align-items: center; text-align: center; color: white; padding: 20px;">
+            <div class="admin-trigger" onclick="loginAdmin()">⚙️</div>
+            <img src="https://knid1515.github.io/Pict_All/LogoKatas.png" style="max-width: 150px; margin-bottom: 20px; filter: drop-shadow(0 5px 15px rgba(0,0,0,0.4));">
+            <h1 style="margin-bottom: 30px; letter-spacing: 1px;">ครูกฤตัชญ์งานปัก</h1>
+            <button onclick="startOrder()" style="padding: 16px 50px; background: var(--gold); border: none; color: white; font-weight: bold; font-size: 1.25rem; border-radius: 35px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">เริ่มสั่งงานปัก</button>
+        </div>
+
+        <div id="chat-view" class="view-section">
+            <div class="header-bar">
+                <div style="display: flex; align-items: center;">
+                    <img src="https://knid1515.github.io/Pict_All/LogoKatas.png" class="header-logo">
+                    <span style="font-weight: 600;">ครูกฤตัชญ์งานปัก</span>
+                </div>
+                <button onclick="location.reload()" style="background:none; border:none; color:white; font-size: 0.75rem;">เริ่มใหม่</button>
+            </div>
+            <div class="chat-messages" id="chat-box"></div>
+            <div class="quick-replies" id="quick-replies"></div>
+            
+            <div class="input-form-area" id="input-form">
+                <div id="form-fields"></div>
+                <div class="form-group"><label>จำนวน (ชิ้น/จุด)</label><input type="number" id="f_qty" value="1" min="1"></div>
+                <hr style="margin: 10px 0; border: none; border-top: 1px solid #eee;">
+                <div class="form-group"><label>ชื่อผู้ติดต่อ</label><input type="text" id="contact_name" placeholder="ระบุชื่อของคุณ"></div>
+                <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="contact_tel" placeholder="08x-xxxxxxx"></div>
+                <button class="submit-btn" onclick="processOrder()">ส่งข้อมูลและรับบิลชำระเงิน 🧵</button>
+            </div>
+        </div>
+
+        <div id="admin-view" class="view-section" style="background: #f5f5f5;">
+            <div class="header-bar"><span>⚙️ หลังบ้าน</span> <button onclick="location.reload()" style="background:none; border:none; color:white; font-weight: bold;">ออก</button></div>
+            <div class="admin-grid" id="admin-menu">
+                <div class="admin-card" onclick="showAdminSection('settings')"><span>🏠</span><small>ข้อมูลร้าน</small></div>
+                <div class="admin-card" onclick="showAdminSection('orders')"><span>📋</span><small>ออเดอร์</small></div>
+            </div>
+            <div id="admin-settings" style="display: none; padding: 20px; overflow-y: auto;">
+                <button onclick="showAdminSection('main')" style="margin-bottom:15px; color:var(--navy); border:none; background:none; font-weight:bold;"> < ย้อนกลับ</button>
+                <div class="form-group"><label>ชื่อร้าน</label><input type="text" id="set_name"></div>
+                <div class="form-group"><label>PromptPay</label><input type="text" id="set_pp"></div>
+                <div class="form-group"><label>ชื่อเจ้าของบัญชี</label><input type="text" id="set_owner"></div>
+                <button class="submit-btn" onclick="saveSettings()" style="width:100%">บันทึกข้อมูล ✅</button>
+            </div>
+            <div id="admin-orders" style="display: none; padding: 15px; overflow-y: auto;">
+                <button onclick="showAdminSection('main')" style="margin-bottom:15px; color:var(--navy); border:none; background:none; font-weight:bold;"> < ย้อนกลับ</button>
+                <div id="admin-order-list"></div>
+            </div>
+        </div>
+
+        <div id="receipt-view" class="view-section">
+            <div class="header-bar"><span>📄 ใบสรุปรายการ</span></div>
+            <div id="receipt-content" style="flex:1; overflow-y:auto;"></div>
+            <button onclick="location.reload()" style="margin: 15px; padding: 15px; background: var(--navy); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">เสร็จสิ้น / กลับหน้าหลัก</button>
+        </div>
+
+        <div class="app-footer">
+            © 2026 ครูกฤตัชญ์งานปัก | บริการงานปักประณีตด้วยใจ
+        </div>
+    </div>
+
+<script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzLV8KeFhcS6RD80efUMOEfvUxGM2QQ0pKRels-XN2M89Mdv7xsth7cRCLiEbTg1f8/exec';
+    let currentType = '';
+    let shop = { StoreName: 'ครูกฤตัชญ์งานปัก', PromptPay: '0892231515', OwnerName: 'วัฒนชาต ทัศนศร' };
+
+    window.onload = async () => {
+        toggleLoading(true);
+        try {
+            const res = await fetch(API_URL + "?action=getConfig");
+            const data = await res.json();
+            if(data.settings) {
+                shop = data.settings;
+                document.getElementById('set_name').value = shop.StoreName;
+                document.getElementById('set_pp').value = shop.PromptPay;
+                document.getElementById('set_owner').value = shop.OwnerName;
+            }
+        } catch(e) {}
+        finally { toggleLoading(false); }
+    };
+
+    function startOrder() {
+        showView('chat-view');
+        botReply("สวัสดีครับ 🧵 รับงานปักประเภทไหนดีครับ 👇");
+        showQuickReplies([
+            { label: 'ปักชุดนักเรียน', action: () => selectMainMenu('ปักชุดนักเรียน') },
+            { label: 'ป้ายชื่อลูกเสือ', action: () => selectMainMenu('ป้ายชื่อลูกเสือ') },
+            { label: 'อื่นๆ', action: () => selectMainMenu('อื่นๆ') }
+        ]);
+    }
+
+    function selectMainMenu(m) {
+        addUserMsg(m);
+        if(m === 'ปักชุดนักเรียน') {
+            showQuickReplies([
+                { label: 'เสื้อประถม (60฿)', action: () => openForm('เสื้อประถม') },
+                { label: 'เสื้อมัธยม (60฿)', action: () => openForm('เสื้อมัธยม') },
+                { label: 'เสื้อ อบต. (40฿)', action: () => openForm('เสื้อ อบต.') },
+                { label: 'เสื้อ อ.วัดศรี (40฿)', action: () => openForm('เสื้อ อ.วัดศรี') },
+                { label: 'ปักชื่อ (40฿)', action: () => openForm('ปักชื่อ-นามสกุล') }
+            ]);
+        } else if(m === 'ป้ายชื่อลูกเสือ') {
+            showQuickReplies([{ label: 'ป้ายชื่อ (50฿)', action: () => openForm('ป้ายชื่อ') }, { label: 'ป้าย+เย็บ (60฿)', action: () => openForm('ป้าย+เย็บ') }]);
+        } else {
+            showQuickReplies([{ label: 'ปักดาว (10฿)', action: () => openForm('ปักดาว') }, { label: 'งานเย็บ (10฿)', action: () => openForm('งานเย็บ') }]);
+        }
+    }
+
+    function openForm(t) {
+        addUserMsg("เลือก " + t);
+        currentType = t;
+        const f = document.getElementById('form-fields');
+        document.getElementById('quick-replies').style.display = 'none';
+        document.getElementById('input-form').style.display = 'flex';
+        
+        let html = '';
+        if(t === 'เสื้อประถม') {
+            html = `<div class="form-group"><label>อักษรย่อ</label><input id="f1" placeholder="เช่น ส.ป."></div><div class="form-group"><label>ชื่อ-นามสกุล</label><input id="f2"></div><div class="form-group"><label>สีไหม</label><select id="f3"><option>น้ำเงิน</option><option>แดง</option></select></div>`;
+        } else if(t === 'เสื้อมัธยม') {
+            html = `<div class="form-group"><label>อักษรย่อ</label><input id="f1"></div><div class="form-group"><label>เลขประจำตัว</label><input id="f2"></div><div class="form-group"><label>ชื่อ-นามสกุล</label><input id="f3"></div><div class="form-group"><label>สีไหม</label><select id="f4"><option>น้ำเงิน</option><option>แดง</option></select></div>`;
+        } else if(t === 'ปักชื่อ-นามสกุล') {
+            html = `<div class="form-group"><label>ชื่อ-นามสกุล</label><input id="f1"></div><div class="form-group"><label>สีไหม</label><select id="f2"><option>น้ำเงิน</option><option>แดง</option><option>ขาว</option></select></div>`;
+        } else if(t.includes('ป้าย')) {
+            html = `<div class="form-group"><label>ชื่อที่จะปัก</label><input id="f1"></div><div class="form-group"><label>สีพื้น</label><select id="f2"><option>ขาว</option><option>เขียว</option><option>ดำ</option><option>เลือดหมู</option></select></div><div class="form-group"><label>สีไหม</label><select id="f3"><option>น้ำเงิน</option><option>ดำ</option><option>เหลือง</option></select></div>`;
+        } else if(t === 'ปักดาว') {
+            html = `<div class="form-group"><label>สีไหม</label><select id="f1"><option>แดง</option><option>น้ำเงิน</option><option>เหลือง</option></select></div>`;
+        } else {
+            html = `<div class="form-group"><label>รายละเอียด</label><input id="f1" placeholder="ระบุสิ่งที่ต้องการเย็บ"></div>`;
+        }
+        f.innerHTML = html;
+        botReply("กรุณากรอกข้อมูลและระบุจำนวนที่ต้องการครับ 👇");
+    }
+
+    async function processOrder() {
+        const name = val('contact_name');
+        const tel = val('contact_tel');
+        const qty = parseInt(val('f_qty')) || 1;
+        if(!name || !tel) return showPopup("👤 ข้อมูลไม่ครบ", "กรุณากรอกชื่อและเบอร์โทรติดต่อ", "❌");
+
+        let up = 0, det = `[${currentType}] `;
+        if(currentType === 'เสื้อประถม') { up = 60; det += `ย่อ:${val('f1')}|ชื่อ:${val('f2')}|ไหม:${val('f3')}`; }
+        else if(currentType === 'เสื้อมัธยม') { up = 60; det += `ย่อ:${val('f1')}|เลข:${val('f2')}|ชื่อ:${val('f3')}|ไหม:${val('f4')}`; }
+        else if(currentType === 'ปักชื่อ-นามสกุล') { up = 40; det += `ชื่อ:${val('f1')}|ไหม:${val('f2')}`; }
+        else if(currentType.includes('อบต') || currentType.includes('วัดศรี')) { up = 40; det += `ชื่อ:${val('f1')}|เล่น:${val('f2')}|ไหม:${val('f3')}`; }
+        else if(currentType === 'ป้ายชื่อ') { up = 50; det += `ชื่อ:${val('f1')}|พื้น:${val('f2')}|ไหม:${val('f3')}`; }
+        else if(currentType === 'ป้าย+เย็บ') { up = 60; det += `ชื่อ:${val('f1')}|พื้น:${val('f2')}|ไหม:${val('f3')}`; }
+        else { up = 10; det += `ข้อมูล:${val('f1')}`; }
+
+        toggleLoading(true);
+        const d = { action: 'saveOrder', date: new Date().toLocaleString('th-TH'), items: det + ` x${qty}`, total: up*qty, address: name + " ("+tel+")" };
+        try {
+            const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(d) });
+            const result = await res.json();
+            showPopup("✅ สั่งงานสำเร็จ", "บันทึกออเดอร์และส่งบิลไปที่ LINE เรียบร้อย", "✅", () => {
+                showView('receipt-view');
+                renderReceipt(result.id, d, up, qty);
+            });
+        } catch(e) { showPopup("❌ ผิดพลาด", "ไม่สามารถส่งข้อมูลได้", "❌"); }
+        finally { toggleLoading(false); }
+    }
+
+    function renderReceipt(id, d, up, q) {
+        const now = new Date();
+        document.getElementById('receipt-content').innerHTML = `
+            <div class="receipt">
+                <div class="receipt-header">
+                    <img src="https://knid1515.github.io/Pict_All/LogoKatas.png" style="width:60px; filter:grayscale(1); opacity:0.6; margin-bottom:5px;"><br>
+                    <strong style="font-size:1.1rem;">${shop.StoreName}</strong><br>
+                    <span style="font-size:0.7rem;">ยินดีให้บริการงานปักคุณภาพ</span>
+                    <div class="receipt-line"></div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem;">
+                        <span>TAX# ${id}</span>
+                        <span>${now.toLocaleDateString('th-TH')} ${now.toLocaleTimeString('th-TH', {hour:'2-digit', minute:'2-digit'})}</span>
+                    </div>
+                </div>
+                <div class="receipt-line"></div>
+                <div class="receipt-row"><strong>รายการ</strong></div>
+                <div class="receipt-row"><span>${d.items.split(' x')[0]}</span></div>
+                <div class="receipt-row" style="padding-left:15px;"><span>${q} x ${up.toFixed(2)}</span> <span>${d.total.toFixed(2)}</span></div>
+                <div class="receipt-line" style="border-top: 1px solid #333;"></div>
+                <div class="receipt-row" style="font-weight:bold; font-size:1.1rem;"><span>ยอดรวมสุทธิ</span> <span>฿${d.total.toFixed(2)}</span></div>
+                <div class="receipt-line"></div>
+                <div style="font-size:0.8rem;">ลูกค้า: ${d.address}</div>
+                <div class="payment-box">
+                    <strong>ช่องทางชำระเงิน</strong><br>
+                    พร้อมเพย์: <span style="font-size:1.2rem; color:var(--navy); font-weight:bold;">${shop.PromptPay}</span><br>
+                    ชื่อบัญชี: ${shop.OwnerName}<br>
+                    <div style="background:#000; color:#fff; margin-top:8px; padding:3px; font-size:0.7rem; font-weight:bold;">* กรุณาชำระเงินก่อนเริ่มงานปัก *</div>
+                </div>
+                <div style="text-align:center; margin-top:15px; font-size:0.75rem;">
+                    ************************************<br>
+                    ขอบคุณที่ใช้บริการครับ<br>
+                    ************************************
+                </div>
+            </div>`;
+    }
+
+    function loginAdmin() {
+        const p = prompt("ระบุรหัส Admin:");
+        if(p === "admin1234") { showView('admin-view'); showAdminSection('main'); }
+        else if(p !== null) showPopup("❌ รหัสผิด", "รหัสผ่านไม่ถูกต้อง", "❌");
+    }
+
+    function showAdminSection(s) {
+        document.getElementById('admin-menu').style.display = s === 'main' ? 'grid' : 'none';
+        document.getElementById('admin-settings').style.display = s === 'settings' ? 'block' : 'none';
+        document.getElementById('admin-orders').style.display = s === 'orders' ? 'block' : 'none';
+        if(s === 'orders') fetchOrders();
+    }
+
+    async function fetchOrders() {
+        const b = document.getElementById('admin-order-list');
+        b.innerHTML = "<center style='padding:20px;'>กำลังโหลด...</center>";
+        try {
+            const res = await fetch(API_URL + "?action=getOrders");
+            const data = await res.json();
+            b.innerHTML = data.map(o => `
+                <div class="order-card" style="border-left-color:${o.Status==='เสร็จแล้ว'?'#2e7d32':(o.Status==='กำลังทำ'?'#f57c00':'#d32f2f')}">
+                    <div style="display:flex; justify-content:space-between;"><b>#${o.OrderID}</b> <b>${o.Status}</b></div>
+                    ${o.Items}<br><small>${o.Date} | ${o.Address}</small>
+                    <div style="display:flex; gap:8px; margin-top:10px;">
+                        <button onclick="updateStatus('${o.OrderID}', 'กำลังทำ')" style="flex:1; padding:8px; background:#fff3e0; border:1px solid #ffcc80; border-radius:8px; font-size:0.75rem; color:#e65100; font-weight:bold;">⏳ ทำ</button>
+                        <button onclick="updateStatus('${o.OrderID}', 'เสร็จแล้ว')" style="flex:1; padding:8px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; font-size:0.75rem; color:#1b5e20; font-weight:bold;">✅ เสร็จ</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch(e) { b.innerHTML = "โหลดข้อมูลไม่สำเร็จ"; }
+    }
+
+    async function updateStatus(id, s) {
+        toggleLoading(true);
+        try {
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateStatus', orderId: id, status: s }) });
+            showPopup("📩 อัปเดตแล้ว", `ออเดอร์ #${id} เป็น ${s}`, "✅", () => fetchOrders());
+        } catch(e) { showPopup("❌ ล้มเหลว", "ไม่สามารถอัปเดตได้", "❌"); }
+        finally { toggleLoading(false); }
+    }
+
+    async function saveSettings() {
+        const d = { action: 'updateSettings', storeName: val('set_name'), tel: '', promptPay: val('set_pp'), ownerName: val('set_owner') };
+        toggleLoading(true);
+        try {
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify(d) });
+            showPopup("🏠 สำเร็จ", "บันทึกการตั้งค่าแล้ว", "✅", () => location.reload());
+        } catch(e) { showPopup("❌ ล้มเหลว", "บันทึกไม่สำเร็จ", "❌"); }
+        finally { toggleLoading(false); }
+    }
+
+    function showView(i) { document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active')); document.getElementById(i).classList.add('active'); }
+    function botReply(t) { document.getElementById('chat-box').innerHTML += `<div class="message bot">${t}</div>`; document.getElementById('chat-box').scrollTop = 9999; }
+    function addUserMsg(t) { document.getElementById('chat-box').innerHTML += `<div class="message user">${t}</div>`; document.getElementById('chat-box').scrollTop = 9999; }
+    function showQuickReplies(bs) { const q = document.getElementById('quick-replies'); q.innerHTML = ''; bs.forEach(b => { const e = document.createElement('button'); e.className = 'qr-btn'; e.innerText = b.label; e.onclick = b.action; q.appendChild(e); }); }
+    function val(i) { return document.getElementById(i).value; }
+    function toggleLoading(s) { document.getElementById('global-loading').style.display = s ? 'flex' : 'none'; }
+    function showPopup(t, tx, i, cb) { document.getElementById('p-title').innerText = t; document.getElementById('p-text').innerText = tx; document.getElementById('p-icon').innerText = i; document.getElementById('custom-popup').style.display = 'flex'; window.pCb = cb; }
+    function closePopup() { document.getElementById('custom-popup').style.display = 'none'; if(window.pCb) { window.pCb(); window.pCb = null; } }
+</script>
+</body>
+</html>
