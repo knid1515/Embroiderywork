@@ -160,6 +160,7 @@
     </div>
 
 <script>
+    // --- อย่าลืมเปลี่ยน API_URL เป็นของใหม่ ถ้ามีการ Deploy ใหม่ ---
     const API_URL = 'https://script.google.com/macros/s/AKfycbzLV8KeFhcS6RD80efUMOEfvUxGM2QQ0pKRels-XN2M89Mdv7xsth7cRCLiEbTg1f8/exec';
     let currentType = '';
     let shop = { StoreName: 'ครูกฤตัชญ์งานปัก', PromptPay: '0892231515', OwnerName: 'วัฒนชาต ทัศนศร' };
@@ -277,9 +278,12 @@
                 <div class="receipt-row"><strong>รายการ</strong></div>
                 <div class="receipt-row"><span>${d.items.split(' x')[0]}</span></div>
                 <div class="receipt-row" style="padding-left:15px;"><span>${q} x ${up.toFixed(2)}</span> <span>${d.total.toFixed(2)}</span></div>
+                
                 <div class="receipt-line" style="border-top: 1px solid #333;"></div>
                 <div class="receipt-row" style="font-weight:bold; font-size:1.1rem;"><span>ยอดรวมสุทธิ</span> <span>฿${d.total.toFixed(2)}</span></div>
+                <div class="receipt-row" style="color:#d32f2f; margin-top:5px;"><span>สถานะการชำระเงิน</span> <span>❌ ยังไม่จ่าย</span></div>
                 <div class="receipt-line"></div>
+                
                 <div style="font-size:0.8rem;">ลูกค้า: ${d.address}</div>
                 <div class="payment-box">
                     <strong>ช่องทางชำระเงิน</strong><br>
@@ -314,24 +318,48 @@
         try {
             const res = await fetch(API_URL + "?action=getOrders");
             const data = await res.json();
+            
+            // ปรับปรุงหน้าจอหลังบ้านให้มีปุ่มสถานะการจ่ายเงิน
             b.innerHTML = data.map(o => `
                 <div class="order-card" style="border-left-color:${o.Status==='เสร็จแล้ว'?'#2e7d32':(o.Status==='กำลังทำ'?'#f57c00':'#d32f2f')}">
                     <div style="display:flex; justify-content:space-between;"><b>#${o.OrderID}</b> <b>${o.Status}</b></div>
                     ${o.Items}<br><small>${o.Date} | ${o.Address}</small>
-                    <div style="display:flex; gap:8px; margin-top:10px;">
-                        <button onclick="updateStatus('${o.OrderID}', 'กำลังทำ')" style="flex:1; padding:8px; background:#fff3e0; border:1px solid #ffcc80; border-radius:8px; font-size:0.75rem; color:#e65100; font-weight:bold;">⏳ ทำ</button>
-                        <button onclick="updateStatus('${o.OrderID}', 'เสร็จแล้ว')" style="flex:1; padding:8px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; font-size:0.75rem; color:#1b5e20; font-weight:bold;">✅ เสร็จ</button>
+                    
+                    <div style="display:flex; justify-content:space-between; margin-top:8px; font-size:0.75rem; background:#f9f9f9; padding:5px; border-radius:5px;">
+                        <span>💰 การเงิน: <b style="color:${o.Payment==='เงินสด'||o.Payment==='เงินโอน'?'#2e7d32':'#d32f2f'}">${o.Payment || 'ยังไม่จ่าย'}</b></span>
+                    </div>
+
+                    <div style="display:flex; gap:4px; margin-top:5px;">
+                        <button onclick="updatePayment('${o.OrderID}', 'เงินสด')" style="flex:1; padding:5px; background:#e3f2fd; border:1px solid #90caf9; border-radius:5px; font-size:0.7rem; color:#1565c0; cursor:pointer;">💵 สด</button>
+                        <button onclick="updatePayment('${o.OrderID}', 'เงินโอน')" style="flex:1; padding:5px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:5px; font-size:0.7rem; color:#2e7d32; cursor:pointer;">📱 โอน</button>
+                        <button onclick="updatePayment('${o.OrderID}', 'ยังไม่จ่าย')" style="flex:1; padding:5px; background:#ffebee; border:1px solid #ef9a9a; border-radius:5px; font-size:0.7rem; color:#c62828; cursor:pointer;">❌ ค้าง</button>
+                    </div>
+
+                    <div style="display:flex; gap:8px; margin-top:8px;">
+                        <button onclick="updateStatus('${o.OrderID}', 'กำลังทำ')" style="flex:1; padding:8px; background:#fff3e0; border:1px solid #ffcc80; border-radius:8px; font-size:0.75rem; color:#e65100; font-weight:bold; cursor:pointer;">⏳ ทำ</button>
+                        <button onclick="updateStatus('${o.OrderID}', 'เสร็จแล้ว')" style="flex:1; padding:8px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; font-size:0.75rem; color:#1b5e20; font-weight:bold; cursor:pointer;">✅ เสร็จ</button>
                     </div>
                 </div>
             `).join('');
         } catch(e) { b.innerHTML = "โหลดข้อมูลไม่สำเร็จ"; }
     }
 
+    // --- ฟังก์ชันอัปเดตงาน (เดิม) ---
     async function updateStatus(id, s) {
         toggleLoading(true);
         try {
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateStatus', orderId: id, status: s }) });
-            showPopup("📩 อัปเดตแล้ว", `ออเดอร์ #${id} เป็น ${s}`, "✅", () => fetchOrders());
+            showPopup("📩 อัปเดตงาน", `ออเดอร์ #${id} เป็น ${s}`, "✅", () => fetchOrders());
+        } catch(e) { showPopup("❌ ล้มเหลว", "ไม่สามารถอัปเดตได้", "❌"); }
+        finally { toggleLoading(false); }
+    }
+
+    // --- ฟังก์ชันใหม่: อัปเดตการเงิน ---
+    async function updatePayment(id, p) {
+        toggleLoading(true);
+        try {
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updatePayment', orderId: id, payment: p }) });
+            showPopup("💰 อัปเดตการเงิน", `ออเดอร์ #${id} ชำระแบบ ${p}`, "✅", () => fetchOrders());
         } catch(e) { showPopup("❌ ล้มเหลว", "ไม่สามารถอัปเดตได้", "❌"); }
         finally { toggleLoading(false); }
     }
