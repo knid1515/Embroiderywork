@@ -125,6 +125,16 @@
                 <hr style="margin: 10px 0; border: none; border-top: 1px solid #eee;">
                 <div class="form-group"><label>ชื่อผู้ติดต่อ</label><input type="text" id="contact_name" placeholder="ระบุชื่อของคุณ"></div>
                 <div class="form-group"><label>เบอร์โทรศัพท์</label><input type="tel" id="contact_tel" placeholder="08x-xxxxxxx"></div>
+                
+                <div class="form-group">
+                    <label>สถานะการเงิน (เริ่มต้น)</label>
+                    <select id="f_payment" style="background:#f8f9fa;">
+                        <option value="ยังไม่จ่าย">❌ ยังไม่จ่าย (เก็บเงินภายหลัง)</option>
+                        <option value="เงินโอน">📱 เงินโอน (แนบสลิป/โอนแล้ว)</option>
+                        <option value="เงินสด">💵 เงินสด (จ่ายหน้าร้านแล้ว)</option>
+                    </select>
+                </div>
+
                 <button class="submit-btn" onclick="processOrder()">ส่งข้อมูลและรับบิลชำระเงิน 🧵</button>
             </div>
         </div>
@@ -160,7 +170,6 @@
     </div>
 
 <script>
-    // --- อย่าลืมเปลี่ยน API_URL เป็นของใหม่ ถ้ามีการ Deploy ใหม่ ---
     const API_URL = 'https://script.google.com/macros/s/AKfycbzLV8KeFhcS6RD80efUMOEfvUxGM2QQ0pKRels-XN2M89Mdv7xsth7cRCLiEbTg1f8/exec';
     let currentType = '';
     let shop = { StoreName: 'ครูกฤตัชญ์งานปัก', PromptPay: '0892231515', OwnerName: 'วัฒนชาต ทัศนศร' };
@@ -236,6 +245,8 @@
         const name = val('contact_name');
         const tel = val('contact_tel');
         const qty = parseInt(val('f_qty')) || 1;
+        const payment = val('f_payment'); // ดึงค่าการชำระเงินจากฟอร์ม
+
         if(!name || !tel) return showPopup("👤 ข้อมูลไม่ครบ", "กรุณากรอกชื่อและเบอร์โทรติดต่อ", "❌");
 
         let up = 0, det = `[${currentType}] `;
@@ -248,7 +259,17 @@
         else { up = 10; det += `ข้อมูล:${val('f1')}`; }
 
         toggleLoading(true);
-        const d = { action: 'saveOrder', date: new Date().toLocaleString('th-TH'), items: det + ` x${qty}`, total: up*qty, address: name + " ("+tel+")" };
+
+        // แนบ payment เข้าไปใน Payload
+        const d = { 
+            action: 'saveOrder', 
+            date: new Date().toLocaleString('th-TH'), 
+            items: det + ` x${qty}`, 
+            total: up*qty, 
+            address: name + " ("+tel+")",
+            payment: payment
+        };
+
         try {
             const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify(d) });
             const result = await res.json();
@@ -262,6 +283,11 @@
 
     function renderReceipt(id, d, up, q) {
         const now = new Date();
+        
+        // กำหนดสีและไอคอนตามสถานะการเงินที่เลือกตอนสั่ง
+        let payColor = (d.payment === 'เงินสด' || d.payment === 'เงินโอน') ? '#2e7d32' : '#d32f2f';
+        let payIcon = d.payment === 'เงินสด' ? '💵' : (d.payment === 'เงินโอน' ? '📱' : '❌');
+
         document.getElementById('receipt-content').innerHTML = `
             <div class="receipt">
                 <div class="receipt-header">
@@ -281,7 +307,10 @@
                 
                 <div class="receipt-line" style="border-top: 1px solid #333;"></div>
                 <div class="receipt-row" style="font-weight:bold; font-size:1.1rem;"><span>ยอดรวมสุทธิ</span> <span>฿${d.total.toFixed(2)}</span></div>
-                <div class="receipt-row" style="color:#d32f2f; margin-top:5px;"><span>สถานะการชำระเงิน</span> <span>❌ ยังไม่จ่าย</span></div>
+                <div class="receipt-row" style="color:${payColor}; margin-top:5px; font-weight:bold;">
+                    <span>สถานะการชำระเงิน</span> 
+                    <span>${payIcon} ${d.payment}</span>
+                </div>
                 <div class="receipt-line"></div>
                 
                 <div style="font-size:0.8rem;">ลูกค้า: ${d.address}</div>
@@ -319,7 +348,6 @@
             const res = await fetch(API_URL + "?action=getOrders");
             const data = await res.json();
             
-            // ปรับปรุงหน้าจอหลังบ้านให้มีปุ่มสถานะการจ่ายเงิน
             b.innerHTML = data.map(o => `
                 <div class="order-card" style="border-left-color:${o.Status==='เสร็จแล้ว'?'#2e7d32':(o.Status==='กำลังทำ'?'#f57c00':'#d32f2f')}">
                     <div style="display:flex; justify-content:space-between;"><b>#${o.OrderID}</b> <b>${o.Status}</b></div>
@@ -344,7 +372,6 @@
         } catch(e) { b.innerHTML = "โหลดข้อมูลไม่สำเร็จ"; }
     }
 
-    // --- ฟังก์ชันอัปเดตงาน (เดิม) ---
     async function updateStatus(id, s) {
         toggleLoading(true);
         try {
@@ -354,7 +381,6 @@
         finally { toggleLoading(false); }
     }
 
-    // --- ฟังก์ชันใหม่: อัปเดตการเงิน ---
     async function updatePayment(id, p) {
         toggleLoading(true);
         try {
