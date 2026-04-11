@@ -245,7 +245,7 @@
         const name = val('contact_name');
         const tel = val('contact_tel');
         const qty = parseInt(val('f_qty')) || 1;
-        const payment = val('f_payment'); // ดึงค่าการชำระเงินจากฟอร์ม
+        const payment = val('f_payment'); 
 
         if(!name || !tel) return showPopup("👤 ข้อมูลไม่ครบ", "กรุณากรอกชื่อและเบอร์โทรติดต่อ", "❌");
 
@@ -260,7 +260,6 @@
 
         toggleLoading(true);
 
-        // แนบ payment เข้าไปใน Payload
         const d = { 
             action: 'saveOrder', 
             date: new Date().toLocaleString('th-TH'), 
@@ -284,7 +283,6 @@
     function renderReceipt(id, d, up, q) {
         const now = new Date();
         
-        // กำหนดสีและไอคอนตามสถานะการเงินที่เลือกตอนสั่ง
         let payColor = (d.payment === 'เงินสด' || d.payment === 'เงินโอน') ? '#2e7d32' : '#d32f2f';
         let payIcon = d.payment === 'เงินสด' ? '💵' : (d.payment === 'เงินโอน' ? '📱' : '❌');
 
@@ -365,18 +363,25 @@
 
                     <div style="display:flex; gap:8px; margin-top:8px;">
                         <button onclick="updateStatus('${o.OrderID}', 'กำลังทำ')" style="flex:1; padding:8px; background:#fff3e0; border:1px solid #ffcc80; border-radius:8px; font-size:0.75rem; color:#e65100; font-weight:bold; cursor:pointer;">⏳ ทำ</button>
-                        <button onclick="updateStatus('${o.OrderID}', 'เสร็จแล้ว')" style="flex:1; padding:8px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; font-size:0.75rem; color:#1b5e20; font-weight:bold; cursor:pointer;">✅ เสร็จ</button>
+                        <button onclick="updateStatus('${o.OrderID}', 'เสร็จแล้ว', '${o.Address}')" style="flex:1; padding:8px; background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; font-size:0.75rem; color:#1b5e20; font-weight:bold; cursor:pointer;">✅ เสร็จ</button>
                     </div>
                 </div>
             `).join('');
         } catch(e) { b.innerHTML = "โหลดข้อมูลไม่สำเร็จ"; }
     }
 
-    async function updateStatus(id, s) {
+    async function updateStatus(id, s, info = '') {
         toggleLoading(true);
         try {
             await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateStatus', orderId: id, status: s }) });
-            showPopup("📩 อัปเดตงาน", `ออเดอร์ #${id} เป็น ${s}`, "✅", () => fetchOrders());
+            
+            // เพิ่มข้อมูลเพื่อแจ้งลูกค้า เมื่อกดว่างานเสร็จแล้ว
+            let textMsg = `ออเดอร์ #${id} เป็น ${s}`;
+            if (s === 'เสร็จแล้ว' && info) {
+                textMsg += `\n\n📞 ข้อมูลสำหรับแจ้งลูกค้ามารับงาน:\n${info}`;
+            }
+
+            showPopup("📩 อัปเดตงาน", textMsg, "✅", () => fetchOrders());
         } catch(e) { showPopup("❌ ล้มเหลว", "ไม่สามารถอัปเดตได้", "❌"); }
         finally { toggleLoading(false); }
     }
