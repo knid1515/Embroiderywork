@@ -95,8 +95,8 @@
         <div class="popup-content">
             <span id="p-icon" style="font-size: 3rem; display: block; margin-bottom: 10px;">✅</span>
             <div id="p-title" style="font-weight: bold; font-size: 1.1rem; margin-bottom: 8px;">สำเร็จ</div>
-            <div id="p-text" style="font-size: 0.9rem; color: #666; margin-bottom: 20px;">ดำเนินการเรียบร้อย</div>
-            <button onclick="closePopup()" style="width: 100%; padding: 12px; background: var(--navy); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">ตกลง</button>
+            <div id="p-text" style="font-size: 0.9rem; color: #333; margin-bottom: 20px;">ดำเนินการเรียบร้อย</div>
+            <button onclick="closePopup()" style="width: 100%; padding: 12px; background: var(--navy); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer;">ตกลง / ปิดหน้าต่าง</button>
         </div>
     </div>
 
@@ -373,12 +373,30 @@
     async function updateStatus(id, s, info = '') {
         toggleLoading(true);
         try {
-            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateStatus', orderId: id, status: s }) });
+            // ส่ง notifyLine=true ให้สคริปต์หลังบ้าน (หากหลังบ้านผูก LINE Webhook ไว้ จะสามารถแจ้งเตือนได้อัตโนมัติ)
+            await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'updateStatus', orderId: id, status: s, customerInfo: info, notifyLine: (s === 'เสร็จแล้ว') }) });
             
-            // เพิ่มข้อมูลเพื่อแจ้งลูกค้า เมื่อกดว่างานเสร็จแล้ว
-            let textMsg = `ออเดอร์ #${id} เป็น ${s}`;
+            let textMsg = `ออเดอร์ #${id} สถานะเป็น ${s}`;
+            
+            // หากออเดอร์เสร็จแล้ว จะเพิ่มปุ่มโทร และแชร์ไปที่ LINE ให้แอดมินกดใช้ได้เลย
             if (s === 'เสร็จแล้ว' && info) {
-                textMsg += `\n\n📞 ข้อมูลสำหรับแจ้งลูกค้ามารับงาน:\n${info}`;
+                textMsg += `<div style="text-align:left; background:#f5f5f5; padding:10px; border-radius:8px; margin-top:10px;">📞 <b>ลูกค้า:</b><br>${info}</div>`;
+                
+                // ค้นหาเบอร์โทร (ตัวเลขติดกัน 9-10 ตัว)
+                const phoneMatch = info.match(/0\d{8,9}/);
+                const phone = phoneMatch ? phoneMatch[0] : '';
+                
+                textMsg += `<div style="display:flex; gap:10px; margin-top:15px; flex-direction:column;">`;
+                
+                if(phone) {
+                    textMsg += `<a href="tel:${phone}" style="display:block; padding:12px; background:#1976d2; color:white; text-decoration:none; border-radius:8px; font-weight:bold; font-size:1rem;">📞 โทรหาลูกค้า (${phone})</a>`;
+                }
+
+                // ปุ่มส่งข้อความแจ้งลูกค้าผ่านแอป LINE บนมือถือ (Share intent)
+                const lineText = encodeURIComponent(`สวัสดีครับคุณลูกค้า 🎉\nออเดอร์งานปัก #${id} เสร็จเรียบร้อยแล้วครับ มารับงานได้เลยครับ`);
+                textMsg += `<a href="https://line.me/R/msg/text/?${lineText}" target="_blank" style="display:block; padding:12px; background:#00c300; color:white; text-decoration:none; border-radius:8px; font-weight:bold; font-size:1rem;">💬 แจ้งเตือนไปที่ LINE</a>`;
+                
+                textMsg += `</div>`;
             }
 
             showPopup("📩 อัปเดตงาน", textMsg, "✅", () => fetchOrders());
@@ -411,7 +429,8 @@
     function showQuickReplies(bs) { const q = document.getElementById('quick-replies'); q.innerHTML = ''; bs.forEach(b => { const e = document.createElement('button'); e.className = 'qr-btn'; e.innerText = b.label; e.onclick = b.action; q.appendChild(e); }); }
     function val(i) { return document.getElementById(i).value; }
     function toggleLoading(s) { document.getElementById('global-loading').style.display = s ? 'flex' : 'none'; }
-    function showPopup(t, tx, i, cb) { document.getElementById('p-title').innerText = t; document.getElementById('p-text').innerText = tx; document.getElementById('p-icon').innerText = i; document.getElementById('custom-popup').style.display = 'flex'; window.pCb = cb; }
+    // ปรับให้ใช้ innerHTML เพื่อให้รองรับปุ่มลิงก์ HTML ได้
+    function showPopup(t, tx, i, cb) { document.getElementById('p-title').innerText = t; document.getElementById('p-text').innerHTML = tx; document.getElementById('p-icon').innerText = i; document.getElementById('custom-popup').style.display = 'flex'; window.pCb = cb; }
     function closePopup() { document.getElementById('custom-popup').style.display = 'none'; if(window.pCb) { window.pCb(); window.pCb = null; } }
 </script>
 </body>
